@@ -1,0 +1,25 @@
+custom_motors_interface:
+    ros__parameters:
+        
+        topics:
+            manual_cmd: "/hw/manual_cmd"
+            auto_cmd: "/hw/autonomous_cmd"
+            cmd_info: "/hw/info"
+            emergency: "/hw/emergency_brake"
+            autonomous_mode: "/autonomous_driver"
+            cmd_sim: "/hw/cmd_sent"
+            
+        min_msg_period: 0.5 # [seconds] if msg have period greater than this the car is forced to a neutral actuator position
+        sim_publisher: true
+        
+        max_steering: 1.0 # [radians] the minus is needed to correct the steering direction
+        steer_pwm:
+            center: 0.0697
+            dead_range: 0.0
+            range: 0.016
+
+        max_speed: 1.0 # [meter/seconds] max speed forward of the car
+        motor_pwm:
+            center: 0.0748
+            dead_range: 0.0015
+            range: 0.015 # we are using approximatively the 60% of the range for safety!
