@@ -6,6 +6,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 
+#include "motors_interface/pca9685_motors.h"
+
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 
@@ -149,6 +151,8 @@ class MotorsInterface : public rclcpp::Node
 
   int main(int argc, char * argv[])
   {
+
+    PCA9685Motors motors;
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<MotorsInterface>());
     rclcpp::shutdown();
