@@ -48,6 +48,7 @@ public:
         float output_center_value,
         int max_pwm_value);
  
+    void SetThrottleAndSteer(float throttle, float steer);
     
     
 };

@@ -22,11 +22,18 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(common_interfaces REQUIRED)
 
 add_executable(motors_interface src/motors_interface.cpp
 		src/pca9685_motors.cpp
 		src/pwm_motor.cpp)
-ament_target_dependencies(motors_interface rclcpp std_msgs)
+ament_target_dependencies(
+		motors_interface
+		rclcpp
+		std_msgs
+		common_interfaces)
+
+
 target_include_directories(motors_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

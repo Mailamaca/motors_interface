@@ -12,7 +12,7 @@ void PCA9685Motors::SetPCA9685Params(
         int hertz,
         int speed_channel,
         int steer_dx_channel,
-        int steer_sx_channel)           
+        int steer_sx_channel)          
 {
     m_i2c_address = i2c_address;
     m_pin_base = pin_base;
@@ -71,4 +71,16 @@ void PCA9685Motors::SetSpeedMotorParams(
         output_center_value,
         max_pwm_value
     );
+}
+
+void PCA9685Motors::SetThrottleAndSteer(float throttle, float steer)
+{
+    int th = m_speed->Calculate(throttle);
+    //pwmWrite(m_pin_base + m_speed_channel, th);
+
+    int st = m_steer->Calculate(steer);
+    //pwmWrite(m_pin_base + m_steer_dx_channel, th);
+    //pwmWrite(m_pin_base + m_steer_sx_channel, th);
+
+
 }
