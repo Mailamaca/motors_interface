@@ -2,25 +2,26 @@ custom_motors_interface:
     ros__parameters:
         
         topics:
-            manual_cmd: "/hw/manual_cmd"
-            auto_cmd: "/hw/autonomous_cmd"
-            cmd_info: "/hw/info"
-            emergency: "/hw/emergency_brake"
-            autonomous_mode: "/autonomous_driver"
-            cmd_sim: "/hw/cmd_sent"
+            in_mode: "/autonomous_driver"
+            in_manual_cmd: "/hw/manual_cmd"
+            in_auto_cmd: "/hw/autonomous_cmd"
+            in_emergency: "/hw/emergency_brake"
+            out_cmd_info: "/hw/info"
             
-        min_msg_period: 5000 # [milliseconds] if msg have period greater than this the car is forced to a neutral actuator position
+        in_msg_max_period: 5000 # [milliseconds] if msg have period greater than this the car is forced to a neutral actuator position
         command_period: 1000 # [milliseconds] time between each motors command sent
-        sim_publisher: true
+        out_msg_rate: 2 # [<command_period> callbacks] if =1 it sens each time it sends command to the motors 
         
-        max_steering: 1.0 # [radians] the minus is needed to correct the steering direction
-        steer_pwm:
+        use_real_pca9685: false
+        
+        max_steering: 1.0 # [radians] can use minus sign to correct the steering direction
+        steering_pwm:
             center: 0.0697
             dead_range: 0.0
             range: 0.016
 
-        max_speed: 1.0 # [meter/seconds] max speed forward of the car
-        motor_pwm:
+        max_throttle: 0.6 # full throttle of the car (set up 60% of the range for safety reason)
+        throttle_pwm:
             center: 0.0748
             dead_range: 0.0015
-            range: 0.015 # we are using approximatively the 60% of the range for safety!
+            range: 0.025

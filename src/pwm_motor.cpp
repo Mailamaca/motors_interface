@@ -3,18 +3,15 @@
 /**
  * @brief Construct a new PWMMotor::PWMMotor object
  * 
- * @param input_max_value 
  * @param output_half_range 
  * @param output_half_dead_range 
  * @param output_center_value 
  * @param max_pwm_value 
  */
-PWMMotor::PWMMotor(float input_max_value,
-    float output_half_range,
+PWMMotor::PWMMotor(float output_half_range,
     float output_half_dead_range,
     float output_center_value,
     int max_pwm_value) :
-        m_input_max_value(input_max_value),
         m_output_half_range(output_half_range),
         m_output_half_dead_range(output_half_dead_range),
         m_output_center_value(output_center_value),
@@ -47,35 +44,16 @@ float PWMMotor::map(float input, float min, float max, float half_dead_range){
 }
 
 /**
- * @brief trim value between -1 and 1
- * 
- * @param value 
- * @return float value trimmed [-1,1]
- */
-float PWMMotor::trim(float value){
-	if(value >  1.) {
-        return 1.0;
-    }
-	else if(value < -1.) {
-        return -1.0;
-    }
-    else {
-        return value;
-    }
-}
-
-/**
  * @brief Calculate the value to send to the PWM motor in the range [0,max_pwm_value]
  * 
  * @param value number in the range [-input_max_value,input_max_value]
  * @return int value to send to the PWM motor in the range [0,max_pwm_value]
  */
-int PWMMotor::Calculate(float value){
+int PWMMotor::calculate(float value){
 
     float duty_cycle;
 
-    value = trim(value/m_input_max_value);
-	duty_cycle = map(value,
+    duty_cycle = map(value,
                             m_output_center_value - m_output_half_range, 
 							m_output_center_value + m_output_half_range,
                             m_output_half_dead_range);

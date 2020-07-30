@@ -5,52 +5,52 @@
 #include "motors_interface/pca9685.h"
 #include <wiringPi.h>
 
+#define PCA9685_ADDRESS 0x40
+#define PCA9685_STEERING_SX_CH 2
+#define PCA9685_STEERING_DX_CH 1
+#define PCA9685_THROTTLE_CH 0
+#define PCA9685_PIN_BASE 300
+#define PCA9685_MAX_PWM 4096
+#define PCA9685_HERTZ 50
+
 class PCA9685Motors
 {
 
 private:
-    int m_steer_sx_channel;
-    int m_steer_dx_channel;
-    int m_speed_channel;
-    int m_pin_base;
-    int m_hertz;
-    int m_i2c_address;
-    PWMMotor *m_steer, *m_speed;
+    PWMMotor *m_steering_pwm, *m_throttle_pwm;
 
-    void SetPwmMotorParams(
+    float m_max_steering;
+    float m_max_throttle;
+    bool m_real_hardware;
+
+    float trim(float value);
+
+    void setPwmMotorParams(
         PWMMotor **motor,
-        float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value);
+        float output_center_value);
  
 public:
     PCA9685Motors();
 
-    bool SetupPCA9685(
-        int i2c_address,
-        int pin_base,
-        int hertz,
-        int speed_channel,
-        int steer_dx_channel,
-        int steer_sx_channel);
+    bool setupPCA9685(bool real_hardware = true);
  
-    void SetSteerMotorParams(
+    void setSteeringParams(
         float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value);
+        float output_center_value);
 
-    void SetSpeedMotorParams(
+    void setThrottleParams(
         float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value);
- 
-    void SetThrottleAndSteer(float throttle, float steer);
+        float output_center_value);
+
+
+    float setThrottle(float throttle);
+    float setSteering(float steering);
     
     
 };

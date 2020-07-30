@@ -6,94 +6,104 @@ PCA9685Motors::PCA9685Motors()
     
 }
 
-bool PCA9685Motors::SetupPCA9685(
-        int i2c_address,
-        int pin_base,
-        int hertz,
-        int speed_channel,
-        int steer_dx_channel,
-        int steer_sx_channel)          
+bool PCA9685Motors::setupPCA9685(bool real_hardware)          
 {
-    m_i2c_address = i2c_address;
-    m_pin_base = pin_base;
-    m_hertz = hertz;
-    m_speed_channel = speed_channel;
-    m_steer_dx_channel = steer_dx_channel;
-    m_steer_sx_channel = steer_sx_channel;
+    m_real_hardware = real_hardware;
 
-    // Calling wiringPi setup first.
-	wiringPiSetup();
+    if (m_real_hardware) {
+        // Calling wiringPi setup first.
+        wiringPiSetup();
 
-	// Setup with pinbase 300 and i2c location 0x40
-	int fd0 = pca9685Setup(m_pin_base , m_i2c_address, m_hertz);
-	if (fd0 < 0)
-	{
-	    return false;
-	}    
-	pca9685PWMReset(fd0);
-
+        // Setup with pinbase 300 and i2c location 0x40
+        int fd0 = pca9685Setup(PCA9685_PIN_BASE , PCA9685_ADDRESS, PCA9685_HERTZ);
+        if (fd0 < 0)
+        {
+            return false;
+        }    
+        pca9685PWMReset(fd0);
+    }
     return true;
 }
  
-void PCA9685Motors::SetPwmMotorParams(
+void PCA9685Motors::setPwmMotorParams(
         PWMMotor **motor,
-        float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value)
+        float output_center_value)
 {
     *motor = new PWMMotor(
-        input_max_value,
         output_half_range,
         output_half_dead_range,
         output_center_value,
-        max_pwm_value
+        PCA9685_MAX_PWM
     );
 }
 
-void PCA9685Motors::SetSteerMotorParams(
+/**
+ * @brief trim value between -1 and 1
+ * 
+ * @param value 
+ * @return float value trimmed [-1,1]
+ */
+float PCA9685Motors::trim(float value){
+	if(value >  1.) {
+        return 1.0;
+    }
+	else if(value < -1.) {
+        return -1.0;
+    }
+    else {
+        return value;
+    }
+}
+
+void PCA9685Motors::setSteeringParams(
         float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value)
+        float output_center_value)
 {
-    SetPwmMotorParams(
-        &m_steer,
-        input_max_value,
+    m_max_steering = input_max_value;
+    setPwmMotorParams(
+        &m_steering_pwm,
         output_half_range,
         output_half_dead_range,
-        output_center_value,
-        max_pwm_value
-    );
+        output_center_value);
 }
 
-void PCA9685Motors::SetSpeedMotorParams(
+void PCA9685Motors::setThrottleParams(
         float input_max_value,
         float output_half_range,
         float output_half_dead_range,
-        float output_center_value,
-        int max_pwm_value)
+        float output_center_value)
 {
-    SetPwmMotorParams(
-        &m_speed,
-        input_max_value,
+    m_max_throttle = input_max_value;
+    setPwmMotorParams(
+        &m_throttle_pwm,
         output_half_range,
         output_half_dead_range,
-        output_center_value,
-        max_pwm_value
-    );
+        output_center_value);
 }
 
-void PCA9685Motors::SetThrottleAndSteer(float throttle, float steer)
+float PCA9685Motors::setThrottle(float throttle)
 {
-    int th = m_speed->Calculate(throttle);
-    pwmWrite(m_pin_base + m_speed_channel, th);
+    throttle = trim(throttle/m_max_throttle);
+    int th = m_throttle_pwm->calculate(throttle);
+    if (m_real_hardware) {
+        pwmWrite(PCA9685_PIN_BASE + PCA9685_THROTTLE_CH, th);
+    }
 
-    int st = m_steer->Calculate(steer);
-    pwmWrite(m_pin_base + m_steer_dx_channel, th);
-    pwmWrite(m_pin_base + m_steer_sx_channel, th);
+    return throttle;
+}
 
+float PCA9685Motors::setSteering(float steering)
+{
+    steering = trim(steering/m_max_steering);
+    int st = m_steering_pwm->calculate(steering);
+    if (m_real_hardware) {
+        pwmWrite(PCA9685_PIN_BASE + PCA9685_STEERING_DX_CH, st);
+        pwmWrite(PCA9685_PIN_BASE + PCA9685_STEERING_SX_CH, st);
+    }
 
+    return steering;
 }

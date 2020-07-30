@@ -25,7 +25,7 @@ class MotorsInterface : public rclcpp::Node
     MotorsInterface() : Node("motors_interface")
     {
       declare_parameters();
-      load_parameters();    
+      load_parameters_and_initialization();    
 
       create_publishers();
       create_subscriptions();
@@ -38,16 +38,16 @@ class MotorsInterface : public rclcpp::Node
     PCA9685Motors motors;
 
     // Topic name list
+    std::string mode_topic_name; // = "/autonomous_driver";
     std::string manual_cmd_topic_name;  // = "/hw/manual_cmd";
     std::string auto_cmd_topic_name;    //   = "/hw/autonomous_cmd";
-    std::string cmd_info_topic_name;    //   = "/hw/info";
     std::string emergency_topic_name;   //  = "/hw/emergency_brake";
-    std::string autonomous_mode_topic_name; // = "/autonomous_driver";
-    std::string cmd_sim_topic_name;     //      = "/sim/cmd";
+    std::string cmd_info_topic_name;    //   = "/hw/info";
 
-    bool sim_publisher = false;
-    int min_subs_period;
+    int msg_max_period;
     int command_period;
+    int info_msg_rate;
+    bool use_real_pca9685;
     
     rclcpp::Subscription<common_interfaces::msg::VehicleMode>::SharedPtr subs_mode;
     rclcpp::Subscription<common_interfaces::msg::VehicleControl>::SharedPtr subs_autonomous;
@@ -60,8 +60,7 @@ class MotorsInterface : public rclcpp::Node
     rclcpp::TimerBase::SharedPtr timer_command;
 
     rclcpp::Publisher<common_interfaces::msg::VehicleControl>::SharedPtr pub_info;
-    rclcpp::Publisher<common_interfaces::msg::VehicleControl>::SharedPtr pub_sim;
-
+    
     std::atomic<bool> subs_mode_ok;
     std::atomic<bool> subs_autonomous_ok;
     std::atomic<bool> subs_manual_ok;
@@ -70,7 +69,9 @@ class MotorsInterface : public rclcpp::Node
     std::atomic<float> manual_throttle;
     std::atomic<float> manual_steering_angle;
     std::atomic<float> autonomous_throttle;
-    std::atomic<float> autonomous_steering_angle;    
+    std::atomic<float> autonomous_steering_angle;   
+
+    std::atomic<int> count_command_send; 
 
     void timer_subs_mode_timeout_callback()
     {
@@ -154,14 +155,20 @@ class MotorsInterface : public rclcpp::Node
       }
 
       RCLCPP_INFO(this->get_logger(), "Command->\tThrottle:%f\tSteeringAngle:%f", throttle, steering_angle);
-      motors.SetThrottleAndSteer(throttle,steering_angle);
+      throttle = motors.setThrottle(throttle);
+      steering_angle = motors.setSteering(steering_angle);
 
-      // msg to simulator
-      if (sim_publisher) {
+      // out msg
+      count_command_send++;
+      if (count_command_send >= info_msg_rate) {
+        count_command_send = 0;
+
         common_interfaces::msg::VehicleControl vehicle_control_msg;
         vehicle_control_msg.throttle = throttle;
         vehicle_control_msg.steering_angle = steering_angle;
-        pub_sim->publish(vehicle_control_msg);
+        pub_info->publish(vehicle_control_msg);
+        RCLCPP_INFO(this->get_logger(), "Publish!");
+      
       }
 
 
@@ -177,21 +184,21 @@ class MotorsInterface : public rclcpp::Node
     }
 
     void start_timer_subs_mode_timeout() {
-      std::chrono::duration<int, std::milli> timeout_time(min_subs_period);
+      std::chrono::duration<int, std::milli> timeout_time(msg_max_period);
       timer_subs_mode_timeout = this->create_wall_timer(
         timeout_time, std::bind(&MotorsInterface::timer_subs_mode_timeout_callback, this)
         );
     }
 
     void start_timer_subs_autonomous_timeout() {
-      std::chrono::duration<int, std::milli> timeout_time(min_subs_period);
+      std::chrono::duration<int, std::milli> timeout_time(msg_max_period);
       timer_subs_autonomous_timeout = this->create_wall_timer(
         timeout_time, std::bind(&MotorsInterface::timer_subs_autonomous_timeout_callback, this)
         );
     }
 
     void start_timer_subs_manual_timeout() {
-      std::chrono::duration<int, std::milli> timeout_time(min_subs_period);
+      std::chrono::duration<int, std::milli> timeout_time(msg_max_period);
       timer_subs_manual_timeout = this->create_wall_timer(
         timeout_time, std::bind(&MotorsInterface::timer_subs_manual_timeout_callback, this)
         );
@@ -206,7 +213,7 @@ class MotorsInterface : public rclcpp::Node
 
     void create_subscriptions() {
       subs_mode = this->create_subscription<common_interfaces::msg::VehicleMode>(
-        autonomous_mode_topic_name, 10, std::bind(&MotorsInterface::subs_mode_callback, this, _1));
+        mode_topic_name, 10, std::bind(&MotorsInterface::subs_mode_callback, this, _1));
 
       subs_autonomous = this->create_subscription<common_interfaces::msg::VehicleControl>(
         auto_cmd_topic_name, 10, std::bind(&MotorsInterface::subs_autonomous_callback, this, _1));
@@ -217,88 +224,80 @@ class MotorsInterface : public rclcpp::Node
 
     void create_publishers() {
       pub_info = this->create_publisher<common_interfaces::msg::VehicleControl>(cmd_info_topic_name, 10);
-      pub_sim = this->create_publisher<common_interfaces::msg::VehicleControl>(cmd_sim_topic_name, 10);
-
+      
     }
 
-    void load_parameters() {
+    void load_parameters_and_initialization() {
 
       float max_steering;
-      float steer_range, steer_dead_range, steer_center;
+      float steering_pwm_range, steering_pwm_dead_range, steering_pwm_center;
 
-      float max_speed;
-      float motor_range, motor_dead_range, motor_center;
+      float max_throttle;
+      float throttle_pwm_range, throttle_pwm_dead_range, throttle_pwm_center;
 
-      this->get_parameter("topics.manual_cmd", manual_cmd_topic_name);
-      this->get_parameter("topics.auto_cmd", auto_cmd_topic_name);
-      this->get_parameter("topics.cmd_info", cmd_info_topic_name);
-      this->get_parameter("topics.emergency", emergency_topic_name);
-      this->get_parameter("topics.autonomous_mode", autonomous_mode_topic_name);
-      this->get_parameter("topics.cmd_sim", cmd_sim_topic_name);
-      this->get_parameter("min_msg_period", min_subs_period);
+      this->get_parameter("topics.in_mode", mode_topic_name);
+      this->get_parameter("topics.in_manual_cmd", manual_cmd_topic_name);
+      this->get_parameter("topics.in_auto_cmd", auto_cmd_topic_name);
+      this->get_parameter("topics.in_emergency", emergency_topic_name);
+      this->get_parameter("topics.out_cmd_info", cmd_info_topic_name);
+      this->get_parameter("in_msg_max_period", msg_max_period);
       this->get_parameter("command_period", command_period);
-      this->get_parameter("sim_publisher", sim_publisher);
+      this->get_parameter("out_msg_rate", info_msg_rate);
+      this->get_parameter("use_real_pca9685", use_real_pca9685);
       this->get_parameter("max_steering", max_steering);
-      this->get_parameter("steer_pwm.center", steer_center);
-      this->get_parameter("steer_pwm.dead_range", steer_dead_range);
-      this->get_parameter("steer_pwm.range", steer_range);
-      this->get_parameter("max_speed", max_speed);
-      this->get_parameter("motor_pwm.center", motor_center);
-      this->get_parameter("motor_pwm.dead_range", motor_dead_range);
-      this->get_parameter("motor_pwm.range", motor_range);
+      this->get_parameter("steering_pwm.center", steering_pwm_center);
+      this->get_parameter("steering_pwm.dead_range", steering_pwm_dead_range);
+      this->get_parameter("steering_pwm.range", steering_pwm_range);
+      this->get_parameter("max_throttle", max_throttle);
+      this->get_parameter("throttle_pwm.center", throttle_pwm_center);
+      this->get_parameter("throttle_pwm.dead_range", throttle_pwm_dead_range);
+      this->get_parameter("throttle_pwm.range", throttle_pwm_range);
 
-      bool pca_ok = motors.SetupPCA9685(
-        0x40,
-        300,
-        50,
-        0,
-        1,
-        2
-      );
+      if (!use_real_pca9685) {
+        RCLCPP_WARN(this->get_logger(), "Real PWM disabled from yaml");
+      }
 
-      if (!pca_ok) {
+      if (!motors.setupPCA9685(use_real_pca9685)) {
         RCLCPP_ERROR(this->get_logger(), "PCA9685 NOT SETUP");
       }
 
-      motors.SetSteerMotorParams(
+      motors.setSteeringParams(
         max_steering,
-        steer_range,
-        steer_dead_range,
-        steer_center,
-        4096
+        steering_pwm_range,
+        steering_pwm_dead_range,
+        steering_pwm_center
       );
 
-      motors.SetSpeedMotorParams(
-        max_speed,
-        motor_range,
-        motor_dead_range,
-        motor_center,
-        4096
+      motors.setThrottleParams(
+        max_throttle,
+        throttle_pwm_range,
+        throttle_pwm_dead_range,
+        throttle_pwm_center
       );
 
     }
 
     void declare_parameters() {
-      this->declare_parameter<std::string>("topics.manual_cmd", "");
-      this->declare_parameter<std::string>("topics.auto_cmd", "");
-      this->declare_parameter<std::string>("topics.cmd_info", "");
-      this->declare_parameter<std::string>("topics.emergency", "");
-      this->declare_parameter<std::string>("topics.autonomous_mode", "");
-      this->declare_parameter<std::string>("topics.cmd_sim", "");
+      this->declare_parameter<std::string>("topics.in_mode", "");
+      this->declare_parameter<std::string>("topics.in_manual_cmd", "");
+      this->declare_parameter<std::string>("topics.in_auto_cmd", "");
+      this->declare_parameter<std::string>("topics.in_emergency", "");
+      this->declare_parameter<std::string>("topics.out_cmd_info", "");
 
-      this->declare_parameter<int>("min_msg_period", 1000);
+      this->declare_parameter<int>("in_msg_max_period", 1000);
       this->declare_parameter<int>("command_period", 100);
-      this->declare_parameter<bool>("sim_publisher", false);
+      this->declare_parameter<int>("out_msg_rate", 100);
+      this->declare_parameter<bool>("use_real_pca9685", false);
 
       this->declare_parameter<float>("max_steering", 1);
-      this->declare_parameter<float>("steer_pwm.center", 0);
-      this->declare_parameter<float>("steer_pwm.dead_range", 0);
-      this->declare_parameter<float>("steer_pwm.range", 1);
+      this->declare_parameter<float>("steering_pwm.center", 0);
+      this->declare_parameter<float>("steering_pwm.dead_range", 0);
+      this->declare_parameter<float>("steering_pwm.range", 1);
 
-      this->declare_parameter<float>("max_speed", 1);
-      this->declare_parameter<float>("motor_pwm.center", 0);
-      this->declare_parameter<float>("motor_pwm.dead_range", 0);
-      this->declare_parameter<float>("motor_pwm.range", 1);
+      this->declare_parameter<float>("max_throttle", 1);
+      this->declare_parameter<float>("throttle_pwm.center", 0);
+      this->declare_parameter<float>("throttle_pwm.dead_range", 0);
+      this->declare_parameter<float>("throttle_pwm.range", 1);
     }
  
     
