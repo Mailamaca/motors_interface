@@ -9,7 +9,8 @@ custom_motors_interface:
             autonomous_mode: "/autonomous_driver"
             cmd_sim: "/hw/cmd_sent"
             
-        min_msg_period: 0.5 # [seconds] if msg have period greater than this the car is forced to a neutral actuator position
+        min_msg_period: 5000 # [milliseconds] if msg have period greater than this the car is forced to a neutral actuator position
+        command_period: 1000 # [milliseconds] time between each motors command sent
         sim_publisher: true
         
         max_steering: 1.0 # [radians] the minus is needed to correct the steering direction
