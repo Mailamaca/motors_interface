@@ -247,7 +247,7 @@ class MotorsInterface : public rclcpp::Node
       this->get_parameter("motor_pwm.dead_range", motor_dead_range);
       this->get_parameter("motor_pwm.range", motor_range);
 
-      motors.SetPCA9685Params(
+      bool pca_ok = motors.SetupPCA9685(
         0x40,
         300,
         50,
@@ -255,6 +255,10 @@ class MotorsInterface : public rclcpp::Node
         1,
         2
       );
+
+      if (!pca_ok) {
+        RCLCPP_ERROR(this->get_logger(), "PCA9685 NOT SETUP");
+      }
 
       motors.SetSteerMotorParams(
         max_steering,

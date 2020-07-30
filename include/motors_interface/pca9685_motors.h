@@ -2,6 +2,8 @@
 #define PCA9685MOTORS_H
  
 #include "motors_interface/pwm_motor.h"
+#include "motors_interface/pca9685.h"
+#include <wiringPi.h>
 
 class PCA9685Motors
 {
@@ -26,7 +28,7 @@ private:
 public:
     PCA9685Motors();
 
-    void SetPCA9685Params(
+    bool SetupPCA9685(
         int i2c_address,
         int pin_base,
         int hertz,

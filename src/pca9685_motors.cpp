@@ -6,7 +6,7 @@ PCA9685Motors::PCA9685Motors()
     
 }
 
-void PCA9685Motors::SetPCA9685Params(
+bool PCA9685Motors::SetupPCA9685(
         int i2c_address,
         int pin_base,
         int hertz,
@@ -20,6 +20,19 @@ void PCA9685Motors::SetPCA9685Params(
     m_speed_channel = speed_channel;
     m_steer_dx_channel = steer_dx_channel;
     m_steer_sx_channel = steer_sx_channel;
+
+    // Calling wiringPi setup first.
+	wiringPiSetup();
+
+	// Setup with pinbase 300 and i2c location 0x40
+	int fd0 = pca9685Setup(m_pin_base , m_i2c_address, m_hertz);
+	if (fd0 < 0)
+	{
+	    return false;
+	}    
+	pca9685PWMReset(fd0);
+
+    return true;
 }
  
 void PCA9685Motors::SetPwmMotorParams(
@@ -76,11 +89,11 @@ void PCA9685Motors::SetSpeedMotorParams(
 void PCA9685Motors::SetThrottleAndSteer(float throttle, float steer)
 {
     int th = m_speed->Calculate(throttle);
-    //pwmWrite(m_pin_base + m_speed_channel, th);
+    pwmWrite(m_pin_base + m_speed_channel, th);
 
     int st = m_steer->Calculate(steer);
-    //pwmWrite(m_pin_base + m_steer_dx_channel, th);
-    //pwmWrite(m_pin_base + m_steer_sx_channel, th);
+    pwmWrite(m_pin_base + m_steer_dx_channel, th);
+    pwmWrite(m_pin_base + m_steer_sx_channel, th);
 
 
 }

@@ -15,6 +15,16 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# find library
+find_library(WIRINGPI_LIBRARIES wiringPi)
+find_library(CRYPT_LIBRARIES crypt)
+find_library(RT_LIBRARIES rt)
+
+if(!WIRINGPI_LIBRARIES)
+  message([AUTHOR_WARNING] wiringPiNOTfound!)
+endif()
+
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
@@ -26,12 +36,20 @@ find_package(common_interfaces REQUIRED)
 
 add_executable(motors_interface src/motors_interface.cpp
 		src/pca9685_motors.cpp
-		src/pwm_motor.cpp)
+		src/pwm_motor.cpp
+    src/pca9685.c)
 ament_target_dependencies(
 		motors_interface
 		rclcpp
 		std_msgs
 		common_interfaces)
+
+#include_directories(${WIRINGPI_INCLUDE_DIRS}) 
+target_link_libraries(${PROJECT_NAME}
+ ${WIRINGPI_LIBRARIES}
+ ${CRYPT_LIBRARIES}
+ ${RT_LIBRARIES}
+)
 
 
 target_include_directories(motors_interface PUBLIC
