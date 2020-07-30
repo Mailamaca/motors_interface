@@ -30,6 +30,17 @@ ROS Node to interact with motors
 5. Customize package.xml
 
 
+## PCA9685
+
+it needs wiringPi installed in /usr/local/lib
+
+1. git clone https://github.com/WiringPi/WiringPi
+2. cd WiringPi
+3. sudo ./build
+
+pca9685 from https://github.com/Reinbert/pca9685
+
+
 # Copyright and License
 
 This software contains code licensed as described in LICENSE.
