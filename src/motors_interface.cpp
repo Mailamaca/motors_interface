@@ -7,8 +7,8 @@
 
 #include "motors_interface/pca9685_motors.h"
 
-#include "common_interfaces/msg/vehicle_control.hpp"
-#include "common_interfaces/msg/vehicle_mode.hpp"
+#include "maila_msgs/msg/vehicle_control.hpp"
+#include "maila_msgs/msg/vehicle_mode.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -49,9 +49,9 @@ class MotorsInterface : public rclcpp::Node
     int info_msg_rate;
     bool use_real_pca9685;
     
-    rclcpp::Subscription<common_interfaces::msg::VehicleMode>::SharedPtr subs_mode;
-    rclcpp::Subscription<common_interfaces::msg::VehicleControl>::SharedPtr subs_autonomous;
-    rclcpp::Subscription<common_interfaces::msg::VehicleControl>::SharedPtr subs_manual;
+    rclcpp::Subscription<maila_msgs::msg::VehicleMode>::SharedPtr subs_mode;
+    rclcpp::Subscription<maila_msgs::msg::VehicleControl>::SharedPtr subs_autonomous;
+    rclcpp::Subscription<maila_msgs::msg::VehicleControl>::SharedPtr subs_manual;
 
     rclcpp::TimerBase::SharedPtr timer_subs_mode_timeout;
     rclcpp::TimerBase::SharedPtr timer_subs_autonomous_timeout;
@@ -59,7 +59,7 @@ class MotorsInterface : public rclcpp::Node
     rclcpp::TimerBase::SharedPtr timer_subs_embrake_timeout;
     rclcpp::TimerBase::SharedPtr timer_command;
 
-    rclcpp::Publisher<common_interfaces::msg::VehicleControl>::SharedPtr pub_info;
+    rclcpp::Publisher<maila_msgs::msg::VehicleControl>::SharedPtr pub_info;
     
     std::atomic<bool> subs_mode_ok;
     std::atomic<bool> subs_autonomous_ok;
@@ -91,7 +91,7 @@ class MotorsInterface : public rclcpp::Node
       subs_manual_ok = false;
     }
 
-    void subs_mode_callback(const common_interfaces::msg::VehicleMode::SharedPtr msg)
+    void subs_mode_callback(const maila_msgs::msg::VehicleMode::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "subs_mode_callback");
       subs_mode_ok = true;
@@ -100,7 +100,7 @@ class MotorsInterface : public rclcpp::Node
       start_timer_subs_mode_timeout();
     }
 
-    void subs_autonomous_callback(const common_interfaces::msg::VehicleControl::SharedPtr msg)
+    void subs_autonomous_callback(const maila_msgs::msg::VehicleControl::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "subs_autonomous_callback");
       subs_autonomous_ok = true;
@@ -110,7 +110,7 @@ class MotorsInterface : public rclcpp::Node
       start_timer_subs_autonomous_timeout();
     }
 
-    void subs_manual_callback(const common_interfaces::msg::VehicleControl::SharedPtr msg)
+    void subs_manual_callback(const maila_msgs::msg::VehicleControl::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "subs_manual_callback");
       subs_manual_ok = true;
@@ -163,7 +163,7 @@ class MotorsInterface : public rclcpp::Node
       if (count_command_send >= info_msg_rate) {
         count_command_send = 0;
 
-        common_interfaces::msg::VehicleControl vehicle_control_msg;
+        maila_msgs::msg::VehicleControl vehicle_control_msg;
         vehicle_control_msg.throttle = throttle;
         vehicle_control_msg.steering_angle = steering_angle;
         pub_info->publish(vehicle_control_msg);
@@ -212,18 +212,18 @@ class MotorsInterface : public rclcpp::Node
     }
 
     void create_subscriptions() {
-      subs_mode = this->create_subscription<common_interfaces::msg::VehicleMode>(
+      subs_mode = this->create_subscription<maila_msgs::msg::VehicleMode>(
         mode_topic_name, 10, std::bind(&MotorsInterface::subs_mode_callback, this, _1));
 
-      subs_autonomous = this->create_subscription<common_interfaces::msg::VehicleControl>(
+      subs_autonomous = this->create_subscription<maila_msgs::msg::VehicleControl>(
         auto_cmd_topic_name, 10, std::bind(&MotorsInterface::subs_autonomous_callback, this, _1));
 
-      subs_manual = this->create_subscription<common_interfaces::msg::VehicleControl>(
+      subs_manual = this->create_subscription<maila_msgs::msg::VehicleControl>(
         manual_cmd_topic_name, 10, std::bind(&MotorsInterface::subs_manual_callback, this, _1));
     }
 
     void create_publishers() {
-      pub_info = this->create_publisher<common_interfaces::msg::VehicleControl>(cmd_info_topic_name, 10);
+      pub_info = this->create_publisher<maila_msgs::msg::VehicleControl>(cmd_info_topic_name, 10);
       
     }
 

@@ -32,7 +32,7 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(common_interfaces REQUIRED)
+find_package(maila_msgs REQUIRED)
 
 add_executable(motors_interface src/motors_interface.cpp
 		src/pca9685_motors.cpp
@@ -42,7 +42,7 @@ ament_target_dependencies(
 		motors_interface
 		rclcpp
 		std_msgs
-		common_interfaces)
+		maila_msgs)
 
 #include_directories(${WIRINGPI_INCLUDE_DIRS}) 
 target_link_libraries(${PROJECT_NAME}
