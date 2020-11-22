@@ -16,11 +16,15 @@ private:
     float map(float input, float min, float max, float half_dead_range);
  
 public:
+    PWMMotor(); 
+    
     PWMMotor(
         float output_half_range,
         float output_half_dead_range,
         float output_center_value,
         int max_pwm_value); 
+
+    
 
     int calculate(float value);
     

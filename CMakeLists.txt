@@ -1,11 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(motors_interface)
 
-# Default to C99
-if(NOT CMAKE_C_STANDARD)
-  set(CMAKE_C_STANDARD 99)
-endif()
-
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -15,71 +10,63 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find library
-find_library(WIRINGPI_LIBRARIES wiringPi)
-find_library(CRYPT_LIBRARIES crypt)
-find_library(RT_LIBRARIES rt)
-
-if(!WIRINGPI_LIBRARIES)
-  message([AUTHOR_WARNING] wiringPiNOTfound!)
-endif()
-
-
-# find dependencies
+# dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(rcutils REQUIRED)
+find_package(i2c_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(maila_msgs REQUIRED)
 
-add_executable(motors_interface src/motors_interface.cpp
-		src/pca9685_motors.cpp
-		src/pwm_motor.cpp
-    src/pca9685.c)
-ament_target_dependencies(
-		motors_interface
-		rclcpp
-		std_msgs
-		maila_msgs)
+include_directories(include)
 
-#include_directories(${WIRINGPI_INCLUDE_DIRS}) 
-target_link_libraries(${PROJECT_NAME}
- ${WIRINGPI_LIBRARIES}
- ${CRYPT_LIBRARIES}
- ${RT_LIBRARIES}
-)
+# create ament index resource which references the libraries in the binary dir
+set(node_plugins "")
 
+# motor_component
+add_library(motor_component SHARED
+  src/motor_component.cpp
+  src/pwm_motor.cpp)
+target_compile_definitions(motor_component
+  PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(motor_component
+  "i2c_interfaces"
+	"std_msgs"
+	"maila_msgs"
+  "rclcpp"
+  "rclcpp_components")
+rclcpp_components_register_nodes(motor_component "motor::MotorComponent")
+set(node_plugins "${node_plugins}motor::MotorComponent;$<TARGET_FILE:motor_component>\n")
 
-target_include_directories(motors_interface PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+# since the package installs libraries without exporting them
+# it needs to make sure that the library path is being exported
+if(NOT WIN32)
+  ament_environment_hooks(
+    "${ament_cmake_package_templates_ENVIRONMENT_HOOK_LIBRARY_PATH}")
+endif()
 
-install(TARGETS motors_interface
-  EXPORT export_${PROJECT_NAME}
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(
-  DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
-install(
-  DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
-)
+install(TARGETS
+  motor_component
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+# Install launch files.
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Install config files.
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

@@ -1,6 +1,8 @@
-custom_motors_interface:
-    ros__parameters:
-        
+#maila/custom_motors_interface:
+#    ros__parameters:
+# removed for composition node    
+#(ref: https://github.com/ros2/rclcpp/issues/715  )
+
         topics:
             in_mode: "/autonomous_driver"
             in_manual_cmd: "/hw/manual_cmd"
@@ -12,7 +14,7 @@ custom_motors_interface:
         command_period: 1000 # [milliseconds] time between each motors command sent
         out_msg_rate: 2 # [<command_period> callbacks] if =1 it sens each time it sends command to the motors 
         
-        use_real_pca9685: false
+        use_real_pca9685: true
         
         max_steering: 1.0 # [radians] can use minus sign to correct the steering direction
         steering_pwm:

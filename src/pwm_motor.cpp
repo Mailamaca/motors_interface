@@ -3,6 +3,19 @@
 /**
  * @brief Construct a new PWMMotor::PWMMotor object
  * 
+ */
+PWMMotor::PWMMotor() :
+        m_output_half_range(0),
+        m_output_half_dead_range(0),
+        m_output_center_value(0),
+        m_max_pwm_value(0)
+{
+    
+}
+
+/**
+ * @brief Construct a new PWMMotor::PWMMotor object
+ * 
  * @param output_half_range 
  * @param output_half_dead_range 
  * @param output_center_value 
@@ -51,9 +64,9 @@ float PWMMotor::map(float input, float min, float max, float half_dead_range){
  */
 int PWMMotor::calculate(float value){
 
-    float duty_cycle;
+    value = (value > 1.0 ? 1.0 : (value < -1.0 ? -1.0 : value));
 
-    duty_cycle = map(value,
+    float duty_cycle = map(value,
                             m_output_center_value - m_output_half_range, 
 							m_output_center_value + m_output_half_range,
                             m_output_half_dead_range);
