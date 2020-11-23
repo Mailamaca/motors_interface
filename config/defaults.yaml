@@ -11,8 +11,8 @@
             out_cmd_info: "/hw/info"
             
         in_msg_max_period: 5000 # [milliseconds] if msg have period greater than this the car is forced to a neutral actuator position
-        command_period: 1000 # [milliseconds] time between each motors command sent
-        out_msg_rate: 2 # [<command_period> callbacks] if =1 it sens each time it sends command to the motors 
+        command_period: 20 # [milliseconds] time between each motors command sent
+        out_msg_rate: 50 # [<command_period> callbacks] if =1 it sens each time it sends command to the motors 
         
         use_real_pca9685: true
         
@@ -21,9 +21,11 @@
             center: 0.0697
             dead_range: 0.0
             range: 0.016
+            max_pwm: 4096
 
         max_throttle: 0.6 # full throttle of the car (set up 60% of the range for safety reason)
         throttle_pwm:
             center: 0.0748
             dead_range: 0.0015
             range: 0.025
+            max_pwm: 4096

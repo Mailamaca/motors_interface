@@ -20,10 +20,13 @@
 #define PCA9685_HERTZ 50
 #define PCA9685_MODE1 0x0
 #define PCA9685_PRESCALE 0xFE
-#define LED0_ON_L 0x6
-#define LEDALL_ON_L 0xFA
+#define PCA9685_LED0_ON_L 0x06
+#define PCA9685_LEDALL_ON_L 0xFA
+#define PCA9685_PIN_ALL 16
 
 #include <functional>
+#include <chrono>
+#include <thread>
 using namespace std::placeholders;
 
 namespace motor
@@ -85,6 +88,7 @@ private:
   void pca9685_cmd_cb(std::shared_ptr<i2c_interfaces::srv::I2cCommand::Response> response);
   
   void send_pwm(uint8_t reg, int value);  
+  int baseReg(int pin);
   
   
   // Topic name list
@@ -101,9 +105,11 @@ private:
 
   float max_steering;
   float steering_pwm_range, steering_pwm_dead_range, steering_pwm_center;
+  int steering_max_pwm;
 
   float max_throttle;
   float throttle_pwm_range, throttle_pwm_dead_range, throttle_pwm_center;
+  int throttle_max_pwm;
 
   PWMMotor steering_pwm;
   PWMMotor throttle_pwm;

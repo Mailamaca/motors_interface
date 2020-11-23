@@ -13,24 +13,18 @@ PWMMotor::PWMMotor() :
     
 }
 
-/**
- * @brief Construct a new PWMMotor::PWMMotor object
- * 
- * @param output_half_range 
- * @param output_half_dead_range 
- * @param output_center_value 
- * @param max_pwm_value 
- */
-PWMMotor::PWMMotor(float output_half_range,
+void PWMMotor::setParams(
+    float input_max_value,
+    float output_half_range,
     float output_half_dead_range,
     float output_center_value,
-    int max_pwm_value) :
-        m_output_half_range(output_half_range),
-        m_output_half_dead_range(output_half_dead_range),
-        m_output_center_value(output_center_value),
-        m_max_pwm_value(max_pwm_value)
+    int max_pwm_value)
 {
-    
+    m_input_max_value = input_max_value;
+    m_output_half_range = output_half_range;
+    m_output_half_dead_range = output_half_dead_range;
+    m_output_center_value = output_center_value;
+    m_max_pwm_value = max_pwm_value;
 }
 
 /**
@@ -53,6 +47,10 @@ float PWMMotor::map(float input, float min, float max, float half_dead_range){
         float center_tmp = (out - half_dead_range);
         out = center_tmp - (min - center_tmp)*input;
     }
+
+    //std::cout << "min:" << min << std::endl;
+    //std::cout << "max:" << max << std::endl;
+    //std::cout << "out:" << out << std::endl;
     return out;
 }
 
@@ -65,11 +63,19 @@ float PWMMotor::map(float input, float min, float max, float half_dead_range){
 int PWMMotor::calculate(float value){
 
     value = (value > 1.0 ? 1.0 : (value < -1.0 ? -1.0 : value));
+    value = value * m_input_max_value;
+
+    //std::cout << "value:" << value << std::endl;
 
     float duty_cycle = map(value,
                             m_output_center_value - m_output_half_range, 
 							m_output_center_value + m_output_half_range,
                             m_output_half_dead_range);
+
+    //std::cout << "duty_cycle:" << duty_cycle << std::endl;
+
+    //int ret = (int)(m_max_pwm_value * duty_cycle + 0.5f);
+    //std::cout << "ret:" << ret << std::endl;
 	
 	return (int)(m_max_pwm_value * duty_cycle + 0.5f);
 

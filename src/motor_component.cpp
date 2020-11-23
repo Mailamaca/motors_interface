@@ -80,6 +80,9 @@ void MotorComponent::load_parameters() {
   this->declare_parameter<float>("steering_pwm.range", 1);
   this->get_parameter("steering_pwm.range", steering_pwm_range);
 
+  this->declare_parameter<int>("steering_pwm.max_pwm", 4096);
+  this->get_parameter("steering_pwm.max_pwm", steering_max_pwm);
+
   this->declare_parameter<float>("max_throttle", 1);
   this->get_parameter("max_throttle", max_throttle);
 
@@ -91,6 +94,9 @@ void MotorComponent::load_parameters() {
 
   this->declare_parameter<float>("throttle_pwm.range", 1);
   this->get_parameter("throttle_pwm.range", throttle_pwm_range);
+
+  this->declare_parameter<int>("throttle_pwm.max_pwm", 4096);
+  this->get_parameter("throttle_pwm.max_pwm", throttle_max_pwm);
            
 
 }
@@ -129,19 +135,32 @@ void MotorComponent::initialize() {
     this->init_pca9685_step1();
   }
 
-  steering_pwm = PWMMotor(
+  this->steering_pwm.setParams(
     max_steering,
     steering_pwm_range,
     steering_pwm_dead_range,
-    steering_pwm_center
+    steering_pwm_center,
+    steering_max_pwm
   );
 
-  throttle_pwm = PWMMotor(
+  this->throttle_pwm.setParams(
     max_throttle,
     throttle_pwm_range,
     throttle_pwm_dead_range,
-    throttle_pwm_center
+    throttle_pwm_center,
+    throttle_max_pwm
   );
+
+  RCLCPP_INFO(this->get_logger(), "throttle_pwm->\t \
+                                  max_throttle:%f\t \
+                                  throttle_pwm_range:%f\t \
+                                  throttle_pwm_dead_range:%f\t \
+                                  throttle_pwm_center:%f ",
+                                  max_throttle,
+                                  throttle_pwm_range,
+                                  throttle_pwm_dead_range,
+                                  throttle_pwm_center);
+  
 
 
 }
@@ -165,7 +184,7 @@ bool MotorComponent::call_i2c_command_service(std::shared_ptr<i2c_interfaces::sr
 
   using ServiceResponseFuture =
     rclcpp::Client<i2c_interfaces::srv::I2cCommand>::SharedFuture;
-  auto response_received_callback = [this, cb](ServiceResponseFuture future) {
+  auto response_received_callback = [/*this, */cb](ServiceResponseFuture future) {
     //RCLCPP_INFO( this->get_logger(), "response_received_callback");
     cb(future.get());
   };
@@ -208,12 +227,12 @@ void MotorComponent::init_pca9685_step2(std::shared_ptr<i2c_interfaces::srv::I2c
     return;
   }
   this->pca9685_settings = response->data_received.at(0) & 0x7F;
-  this->pca9685_sleep	= this->pca9685_settings | 0x10;				// Set sleep bit to 1
-	this->pca9685_wake 	= this->pca9685_settings & 0xEF;				// Set sleep bit to 0
+  this->pca9685_autoInc = this->pca9685_settings | 0x20;
+  this->pca9685_sleep	= this->pca9685_autoInc | 0x10;				// Set sleep bit to 1
+	this->pca9685_wake 	= this->pca9685_autoInc & 0xEF;				// Set sleep bit to 0
 	this->pca9685_restart = this->pca9685_wake | 0x80;
 
-  this->pca9685_autoInc = this->pca9685_settings | 0x20;
-
+  
   auto request = std::make_shared<i2c_interfaces::srv::I2cCommand::Request>();
   request->slave = PCA9685_ADDRESS;
   request->reg = PCA9685_MODE1;
@@ -294,6 +313,7 @@ void MotorComponent::init_pca9685_step5(std::shared_ptr<i2c_interfaces::srv::I2c
   //wiringPiI2CWriteReg8(fd, PCA9685_MODE1, wake);
 
   RCLCPP_INFO( this->get_logger(), "init_pca9685_step5");
+  
 
   // evaluate response
   if (!response->ok) {
@@ -322,6 +342,8 @@ void MotorComponent::init_pca9685_step6(std::shared_ptr<i2c_interfaces::srv::I2c
   //wiringPiI2CWriteReg8(fd, PCA9685_MODE1, restart);
 
   RCLCPP_INFO( this->get_logger(), "init_pca9685_step6");
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   // evaluate response
   if (!response->ok) {
@@ -361,7 +383,7 @@ void MotorComponent::init_pca9685_step7(std::shared_ptr<i2c_interfaces::srv::I2c
   
   auto request = std::make_shared<i2c_interfaces::srv::I2cCommand::Request>();
   request->slave = PCA9685_ADDRESS;
-  request->reg = LEDALL_ON_L;
+  request->reg = PCA9685_LEDALL_ON_L;
   request->write = true;
   request->length = 2;
   std::vector<uint8_t> vectData;
@@ -390,7 +412,7 @@ void MotorComponent::init_pca9685_step8(std::shared_ptr<i2c_interfaces::srv::I2c
   
   auto request = std::make_shared<i2c_interfaces::srv::I2cCommand::Request>();
   request->slave = PCA9685_ADDRESS;
-  request->reg = LEDALL_ON_L+2;
+  request->reg = PCA9685_LEDALL_ON_L+2;
   request->write = true;
   request->length = 2;
   std::vector<uint8_t> vectData;
@@ -426,7 +448,7 @@ void MotorComponent::send_pwm(uint8_t reg, int value) {
 
   //wiringPiI2CWriteReg16(fd, LEDALL_ON_L+2	 , 0x1000);
 
-  //RCLCPP_INFO( this->get_logger(), "send_pwm");
+  //RCLCPP_INFO( this->get_logger(), "send_pwm: reg:%d", reg);
   
   auto request = std::make_shared<i2c_interfaces::srv::I2cCommand::Request>();
   request->slave = PCA9685_ADDRESS;
@@ -434,9 +456,13 @@ void MotorComponent::send_pwm(uint8_t reg, int value) {
   request->write = true;
   request->length = 2;
   std::vector<uint8_t> vectData;
+
   vectData.push_back((uint8_t)(value >> 0));
   vectData.push_back((uint8_t)(value >> 8));
   request->data_to_send = vectData;
+
+  //RCLCPP_INFO( this->get_logger(), "vectData[0]:%d", vectData.at(0));
+  //RCLCPP_INFO( this->get_logger(), "vectData[1]:%d", vectData.at(1));
 
   auto fp = std::bind(&MotorComponent::pca9685_cmd_cb, this, _1);
   call_i2c_command_service(request, fp); 
@@ -473,7 +499,7 @@ void MotorComponent::timer_subs_manual_timeout_callback() {
 }
 
 void MotorComponent::subs_mode_callback(const maila_msgs::msg::VehicleMode::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "subs_mode_callback");
+  //RCLCPP_INFO(this->get_logger(), "subs_mode_callback");
   this->subs_mode_ok = true;
   this->mode = msg->mode;
 
@@ -481,7 +507,7 @@ void MotorComponent::subs_mode_callback(const maila_msgs::msg::VehicleMode::Shar
 }
 
 void MotorComponent::subs_autonomous_callback(const maila_msgs::msg::VehicleControl::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "subs_autonomous_callback");
+  //RCLCPP_INFO(this->get_logger(), "subs_autonomous_callback");
   this->subs_autonomous_ok = true;
   this->autonomous_throttle = msg->throttle;
   this->autonomous_steering_angle = msg->steering_angle;
@@ -490,7 +516,7 @@ void MotorComponent::subs_autonomous_callback(const maila_msgs::msg::VehicleCont
 }
 
 void MotorComponent::subs_manual_callback(const maila_msgs::msg::VehicleControl::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "subs_manual_callback");
+  //RCLCPP_INFO(this->get_logger(), "subs_manual_callback");
   this->subs_manual_ok = true;
   this->manual_throttle = msg->throttle;
   this->manual_steering_angle = msg->steering_angle;
@@ -559,30 +585,39 @@ void MotorComponent::timer_command_callback() {
     RCLCPP_WARN(this->get_logger(), "No msgs on mode topic");
   }
 
-  RCLCPP_INFO(this->get_logger(), "Command->\tThrottle:%f\tSteeringAngle:%f", throttle, steering_angle);
+  //RCLCPP_INFO(this->get_logger(), "Command->\tThrottle:%f\tSteeringAngle:%f", throttle, steering_angle);
+  
   
   int th_tick = throttle_pwm.calculate(throttle);
   int st_tick = steering_pwm.calculate(steering_angle);
 
+  //RCLCPP_INFO(this->get_logger(), "Command->\tth_tick:%d", th_tick);
+  
+
   // **** TODO: SEND COMMAND TO I2C!!!
-  this->send_pwm((uint8_t) (PCA9685_PIN_BASE + PCA9685_THROTTLE_CH), th_tick);  
-  this->send_pwm((uint8_t) (PCA9685_PIN_BASE + PCA9685_STEERING_DX_CH), st_tick);  
-  this->send_pwm((uint8_t) (PCA9685_PIN_BASE + PCA9685_STEERING_SX_CH), st_tick);  
+  this->send_pwm((uint8_t) (baseReg(PCA9685_THROTTLE_CH)+2), th_tick);  
+  this->send_pwm((uint8_t) (baseReg(PCA9685_STEERING_DX_CH)+2), st_tick);  
+  this->send_pwm((uint8_t) (baseReg(PCA9685_STEERING_SX_CH)+2), st_tick);  
 
   // out msg
   count_command_send++;
   if (count_command_send >= info_msg_rate) {
     count_command_send = 0;
 
+    
     maila_msgs::msg::VehicleControl vehicle_control_msg;
     vehicle_control_msg.throttle = throttle;
     vehicle_control_msg.steering_angle = steering_angle;
     pub_info->publish(vehicle_control_msg);
-    RCLCPP_INFO(this->get_logger(), "Publish!");
+    //RCLCPP_INFO(this->get_logger(), "Publish!");
   
   }
 
 
+}
+
+int MotorComponent::baseReg(int pin) {
+	return (pin >= PCA9685_PIN_ALL ? PCA9685_LEDALL_ON_L : PCA9685_LED0_ON_L + 4 * pin);
 }
 
 }  // namespace motor
